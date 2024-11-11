@@ -1,0 +1,483 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <locale.h>
+
+// Declaração de variáveis globais
+FILE*arquivo;
+char mat[20][2][50]; // Matriz para armazenar usuários e senhas criptografadas
+int totuser = 0; // Total de usuários
+
+//--------------------------------------------------------------
+// Procedimento para carregar os dados do arquivo para a matriz
+void learquivo() {
+    char linha[50];
+    int x = 0; // Inicializar x fora do loop para contagem correta de usuários
+    
+    arquivo = fopen("crip.txt", "r");
+    if (arquivo == NULL) {
+        return;
+    }
+
+    // Lê os usuários e senhas do arquivo para a matriz
+    while (fgets(linha, sizeof(linha), arquivo) != NULL) {
+        linha[strcspn(linha, "\n")] = '\0';
+        strcpy(mat[x][0], linha); // Armazena o usuário criptografado na matriz
+        
+        if (fgets(linha, sizeof(linha), arquivo) != NULL) {
+            linha[strcspn(linha, "\n")] = '\0'; // Remove o '\n' final
+            strcpy(mat[x][1], linha); // Armazena a senha criptografada na matriz
+            x++;
+        }
+    }
+    totuser = x; // Define o total de usuários lidos
+    fclose(arquivo);
+}
+
+//--------------------------------------------------------------
+// Função para limpar a tela
+void limpatela() {
+    system("clear || cls");
+}
+
+//--------------------------------------------------------------
+// Função para pausar a execução até o usuário pressionar ENTER
+void pausa() {
+    printf("Pressione ENTER para continuar...");
+    getchar();
+}
+
+//--------------------------------------------------------------
+// Função para validar a senha
+int senhavalida(const char *senha) {
+    int len = strlen(senha);
+    int maiusc = 0, minusc = 0, digit = 0, espec = 0;
+    int x;
+
+    // A senha deve ter entre 8 e 20 caracteres
+    if (len < 8 || len > 20) return 0;
+
+    for (x = 0; x < len; x++) {
+        if (isupper(senha[x])) maiusc = 1;		// Validação de maiusculo
+        else if (islower(senha[x])) minusc = 1; // Validação de minusculo
+        else if (isdigit(senha[x])) digit = 1;  // Validação de numeros
+        else espec = 1;							// Validação de caracter especial
+    }
+    // Retorna 1 se todos os critérios forem atendidos, caso contrário, 0
+    return maiusc && minusc && digit && espec;
+}
+
+//--------------------------------------------------------------
+// Função para criptografar a senha
+char* crip(const char* palavra) {
+    static char tmp[100]; // Variavel temporaria para armazenar o resultado criptografado
+    int len = strlen(palavra);
+    int x,c;
+    strcpy(tmp, "");
+
+    for (x = 0; x < len; x++) {
+        c = (int)palavra[x];
+        tmp[x] = (char)(c + x + 5); // Valor ASCII + posição + 5
+    }
+    tmp[len] = '\0'; // Finaliza a string
+    return tmp;
+}
+
+//--------------------------------------------------------------
+// Função para descriptografar a senha
+char* descrip(const char* palavra) {
+    static char tmp[100]; // Variavel temporaria para armazenar o resultado criptografado
+    int len = strlen(palavra);
+    int x;
+    strcpy(tmp, "");
+
+    for (x = 0; x < len; x++) {
+        int c = (int)palavra[x];
+        tmp[x] = (char)(c - x - 5); // // Valor ASCII - posição - 5
+    }
+    tmp[len] = '\0'; // Finaliza a string
+    return tmp;
+}
+
+//--------------------------------------------------------------
+// Função para salvar usuário ou senha no arquivo
+void salvaarquivo(const char* texto) {
+    arquivo = fopen("crip.txt", "a"); // Abre o arquivo em modo de adição
+    if (arquivo == NULL) {
+        printf("Erro ao abrir o arquivo\n");
+        return;
+    }
+    fprintf(arquivo, "%s\n", texto); // Escreve o texto no arquivo com nova linha
+    fclose(arquivo);
+}
+
+//--------------------------------------------------------------
+// Função para buscar um usuário no arquivo
+int buscar(const char* usuario) {
+    arquivo = fopen("crip.txt", "r"); // Abre o arquivo para leitura
+    if (arquivo == NULL) {
+        return -1;
+    }
+
+    char linha[50];
+    int i = -1; // Índice para retorno se o usuário for encontrado
+    int x = 0;
+
+    // Lê cada linha do arquivo e compara com a chave
+    while (fgets(linha, sizeof(linha), arquivo) != NULL) {
+        linha[strcspn(linha, "\n")] = '\0'; // Remove o '\n'
+        strcpy(linha, descrip(linha)); // Descriptografa para comparação
+        if (strcmp(usuario, linha) == 0) {
+            i = x; // Guarda o índice encontrado
+            break;
+        }
+        x++;
+    }
+
+    fclose(arquivo); // Fecha o arquivo
+    return i; // Retorna o índice ou -1 se não encontrado
+}
+//--------------------------------------------------------------
+// Procedimento para ordenar os usuarios em ordem alfabetica
+void classifica() {
+    FILE *arquivo_original, *arquivo_temp;
+	int i, x;
+    char tempUser[50], tempPass[50];
+
+    // Ordenação por flutuação para colocar os usuários em ordem alfabética
+    for (i = 0; i < totuser - 1; i++) {
+        for (x = i + 1; x < totuser; x++) {
+            // Cria variáveis temporárias para os nomes descriptografados
+            char usuarioI[50], usuarioX[50];
+            strcpy(usuarioI, descrip(mat[i][0]));
+            strcpy(usuarioX, descrip(mat[x][0]));
+
+            // Compara os nomes dos usuários mat[i][0] e mat[x][0]
+            if (strcmp(usuarioI, usuarioX) > 0) {
+                // Troca mat[i] com mat[x]
+                strcpy(tempUser, mat[i][0]);
+                strcpy(tempPass, mat[i][1]);
+                strcpy(mat[i][0], mat[x][0]);
+                strcpy(mat[i][1], mat[x][1]);
+                strcpy(mat[x][0], tempUser);
+                strcpy(mat[x][1], tempPass);
+            }
+        }
+    }
+    // Abre o arquivo temporário para escrita
+    arquivo_temp = fopen("temp.txt", "w");
+    if (arquivo_temp == NULL) {
+        printf("Erro ao abrir o arquivo temporário para escrita.\n");
+        fclose(arquivo_original);
+        return;
+    }
+    for (x = 0; x < totuser; x++) {
+    	fputs(mat[x][0], arquivo_temp);
+    	fputs("\n", arquivo_temp); 
+    	fputs(mat[x][1], arquivo_temp);
+    	fputs("\n", arquivo_temp); 
+	}
+	fclose(arquivo_temp);
+	
+	 // Remove o arquivo original
+    if (remove("crip.txt") != 0) {
+        printf("Erro ao remover o arquivo original.\n");
+        return;
+    }
+
+    // Renomeia o arquivo temporário para o nome original
+    if (rename("temp.txt", "crip.txt") != 0) {
+        printf("Erro ao renomear o arquivo temporário.\n");
+        return;
+    }
+}
+//--------------------------------------------------------------
+// Função para adicionar um novo usuário e senha
+void adduser() {
+    char usuario[50], senha[50], senha2[50];
+
+    limpatela();
+    printf("I N S E R I R\n");
+
+    // Solicita nome de usuário e valida se já existe
+    do {
+        printf("Nome do Usuario: ");
+        fgets(usuario, 50, stdin);
+        usuario[strcspn(usuario, "\n")] = 0;
+        
+        if (strcmp(usuario,"")==0 ){
+			return;
+		}
+        
+        if (buscar(usuario) != -1) {
+            printf("Usuário já cadastrado!\n");
+            pausa();
+            return;
+        }
+    } while (buscar(usuario) != -1 || strlen(usuario) < 3);
+    
+    // Solicita e valida a senha
+    do {
+        printf("Senha: ");
+        fgets(senha, 50, stdin);
+        senha[strcspn(senha, "\n")] = 0; 
+    } while (!senhavalida(senha));
+    
+    // Solicita a repetição da senha e verifica correspondência
+    do {
+        printf("Repita a Senha: ");
+        fgets(senha2, 50, stdin);
+        senha2[strcspn(senha2, "\n")] = 0; 
+    } while (!senhavalida(senha2) || strcmp(senha, senha2) != 0);
+    
+    // Salva o usuário e a senha criptografados na matriz e no arquivo
+    strcpy(mat[totuser][0], crip(usuario));
+    strcpy(mat[totuser][1], crip(senha));
+    
+    arquivo = fopen("crip.txt","a");
+    //fprintf(arquivo,"\n");
+    fprintf(arquivo, mat[totuser][0]);
+    fprintf(arquivo, "\n");
+    fprintf(arquivo, mat[totuser][1]);
+    fclose(arquivo);
+	   
+    totuser++; // Incrementa o total de usuários
+    classifica();
+}
+
+//--------------------------------------------------------------
+// Função para alterar a senha de um usuário existente
+
+void alterar() {
+    FILE *arquivo_original, *arquivo_temp;
+    char usuario[50], novasenha[50], novasenha2[50];
+    char linha[50];
+    int i, y, x;
+    
+    system("chmod u+w crip.txt");
+    system("chmod u+w temp.txt");
+    
+    limpatela();
+    printf("A L T E R A R   S E N H A\n");
+    
+    // Solicita o nome de usuário
+    printf("Nome do Usuario: ");
+    fgets(usuario, 50, stdin);
+    usuario[strcspn(usuario, "\n")] = 0; 
+    x = buscar(usuario);
+    if (x == -1) {
+        printf("Usuário não encontrado!\n");
+        pausa();
+        return;
+    }
+
+    // Solicita e valida a nova senha
+    do {
+        printf("Nova Senha: ");
+        fgets(novasenha, 50, stdin);
+        novasenha[strcspn(novasenha, "\n")] = 0;
+    } while (!senhavalida(novasenha));
+
+    // Solicita a confirmação da nova senha
+    do {
+        printf("Repita a Senha: ");
+        fgets(novasenha2, 50, stdin);
+        novasenha2[strcspn(novasenha2, "\n")] = 0;
+    } while (!senhavalida(novasenha2) || strcmp(novasenha, novasenha2) != 0);
+    
+    // Atualiza a senha criptografada na matriz
+    strcpy(mat[x/2][1], crip(novasenha)); 
+    
+    // Abre o arquivo para atualização
+    arquivo_original = fopen("crip.txt", "r");
+    if (arquivo_original == NULL) {
+        printf("Erro ao abrir o arquivo para leitura.\n");
+        return;
+    }
+
+    // Abre o arquivo temporário para escrita
+    arquivo_temp = fopen("temp.txt", "w");
+    if (arquivo_temp == NULL) {
+        printf("Erro ao abrir o arquivo temporário para escrita.\n");
+        fclose(arquivo_original);
+        return;
+    }
+
+    // Lê o arquivo original linha por linha
+    y = 0;
+    while (fgets(linha, sizeof(linha), arquivo_original)) {
+        // Se estivermos na linha correspondente ao usuário, substituímos a senha
+        if (y == x+1) {
+            fputs(mat[x/2][1], arquivo_temp);  // Escreve a nova senha criptografada
+            fputs("\n", arquivo_temp);
+        } else {
+            fputs(linha, arquivo_temp);  // Escreve as outras linhas sem alterações
+        }
+        y++;
+    }
+    
+    fclose(arquivo_original);
+    fclose(arquivo_temp);
+    
+    // Remove o arquivo original
+    if (remove("crip.txt") != 0) {
+        printf("Erro ao remover o arquivo original.\n");
+        return;
+    }
+
+    // Renomeia o arquivo temporário para o nome original
+    if (rename("temp.txt", "crip.txt") != 0) {
+        printf("Erro ao renomear o arquivo temporário.\n");
+        return;
+    }
+
+    printf("Senha alterada com sucesso!\n");
+    pausa();
+}
+
+//--------------------------------------------------------------
+// Função para excluir um usuário
+
+void deletar() {
+	FILE *arquivo_original, *arquivo_temp;
+    char usuario[50];
+    char linha[50];
+    int i,x,y; //"Contadores"
+	char conf;
+	
+	system("chmod u+w crip.txt");
+	system("chmod u+w temp.txt");
+	
+    limpatela();
+    printf("E X C L U I R\n");
+    
+    printf("Nome do Usuario: ");
+    fgets(usuario, 50, stdin);
+    usuario[strcspn(usuario, "\n")] = 0;
+    
+    x = buscar(usuario);
+    
+    if (x == -1) {
+        printf("Usuário não encontrado!\n");
+        pausa();
+        return;
+    }
+    printf("Confirma exclusao? (S/N): ");
+    scanf(" %c", &conf);
+    getchar();
+
+    if (toupper(conf) == 'S') {
+        // Reorganiza a matriz após exclusão
+        for (i = x/2; i < totuser - 1; i++) {
+            strcpy(mat[i][0], mat[i + 1][0]);
+            strcpy(mat[i][1], mat[i + 1][1]);
+        }
+        totuser--; // Reduz o total de usuários
+    arquivo_original = fopen("crip.txt", "r");
+    if (arquivo_original == NULL) {
+        printf("Erro ao abrir o arquivo para leitura.\n");
+        return;
+    }
+
+    // Abre o arquivo temporário para escrita
+    arquivo_temp = fopen("temp.txt", "w");
+    if (arquivo_temp == NULL) {
+        printf("Erro ao abrir o arquivo temporário para escrita.\n");
+        fclose(arquivo_original);
+        return;
+    }
+
+    // Lê o arquivo original linha por linha
+    y=0;
+    while (fgets(linha, sizeof(linha), arquivo_original)) {
+        // Se não for a linha que queremos excluir, escreva no arquivo temporário
+        if (y != x && y != x + 1) {
+            fputs(linha, arquivo_temp);
+		}
+        y++;
+    }
+    
+    fclose(arquivo_original);
+    fclose(arquivo_temp);
+    
+    // Remove o arquivo original
+    if (remove("crip.txt") != 0) {
+        printf("Erro ao remover o arquivo original.\n");
+        return;
+    }
+
+    // Renomeia o arquivo temporário para o nome original
+    if (rename("temp.txt", "crip.txt") != 0) {
+        printf("Erro ao renomear o arquivo temporário.\n");
+        return;
+    }
+}
+    pausa();
+}
+
+//--------------------------------------------------------------
+// Procedimento para listar os usuários
+
+void listar(int tipo) {
+    limpatela();
+    int x;
+    
+    printf("---------------------------------------------------------\n");
+    printf("Usuário         Senha\n");
+    printf("---------------------------------------------------------\n");
+
+    // Exibe os usuários e senhas
+    for (x = 0; x < totuser; x++) {
+        printf("%-15s ", descrip(mat[x][0]));
+        if (tipo == 1) {
+            printf("%s\n", mat[x][1]); // Exibe senha 
+        } else {
+            printf("*****\n"); // Esconde a senha
+        }
+    }
+    printf("---------------------------------------------------------\n");
+    pausa();
+}
+
+//--------------------------------------------------------------
+// Função para exibir o menu principal
+void menu() {
+    setlocale(LC_ALL, "Portuguese");
+    char op;
+    do {
+        limpatela();
+        printf("M E N U\n");
+        printf("1 - Inserir\n");
+        printf("2 - Alterar\n");
+        printf("3 - Excluir\n");
+        printf("4 - Listar\n");
+        printf("5 - Créditos\n");
+        printf("6 - Fim\n");
+        printf("Opcao: ");
+        scanf(" %c", &op);
+        getchar();
+
+        // Seleciona a ação de acordo com a opção escolhida
+        switch (op) {
+            case '0': listar(1); break;  // Mostra as senhas criptografadas
+            case '1': adduser(); break;
+            case '2': alterar(); break;
+            case '3': deletar(); break;
+            case '4': listar(0); break;
+            case '5':
+                printf("\nAEP 2ºSemestre.\nHugo Lopes Garcia Mendes\nLucas Franco Andriatta\nThiago Fernando Zulli\n");
+                pausa();
+                break;
+        }
+    } while (op != '6'); // Sai do loop quando a opção for "Fim"
+}
+
+//--------------------------------------------------------------
+// Função principal
+int main() {
+    learquivo(); // Carrega os dados do arquivo
+    classifica();// Ordena os usuarios
+    menu(); // Exibe o menu principal
+    return 0;
+}
